@@ -3,6 +3,7 @@ package com.babooloon.retrieveandrank;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.method.ScrollingMovementMethod;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -15,8 +16,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import org.dom4j.Document;
-import org.dom4j.io.SAXReader;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import fr.arnaudguyon.xmltojsonlib.XmlToJson;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
         button = (Button) findViewById(R.id.button);
         editText = (EditText) findViewById(R.id.editText);
         textView = (TextView) findViewById(R.id.textView);
+        textView.setMovementMethod(new ScrollingMovementMethod());
 
         View.OnClickListener onClickListener = new View.OnClickListener() {
             @Override
@@ -54,7 +59,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            // textView = (TextView) findViewById(R.id.textView);
         }
         @Override
         protected String doInBackground(String... params) {
@@ -83,12 +87,7 @@ public class MainActivity extends AppCompatActivity {
                 connection.connect();
 
                 // Get response if success
-                //TODO json format in java
                 if(connection.getResponseCode()==201 || connection.getResponseCode()==200){
-                    // d_root in Document
-                    // SAXReader reader = new SAXReader();
-                    // Document d_root = reader.read(connection.getInputStream());
-                    // json_response in string
                     InputStreamReader in = new InputStreamReader(connection.getInputStream());
                     BufferedReader br = new BufferedReader(in);
                     String text = "";
@@ -103,8 +102,30 @@ public class MainActivity extends AppCompatActivity {
             }catch (Exception e) {
                 e.printStackTrace();
             }
-            System.out.println("Executed");
-            return json_response;
+
+            XmlToJson xmlToJson = new XmlToJson.Builder(json_response).build();
+            JSONObject jsonObject = xmlToJson.toJson();
+            String result_str = "";
+            try {
+                JSONObject response = jsonObject.getJSONObject("response");
+                JSONObject result = response.getJSONObject("result");
+                JSONArray docs = result.getJSONArray("doc");
+                System.out.println(docs.toString(4));
+
+                for (int i = 0; i < docs.length() && i < 3; i++) {
+                    JSONObject doc = docs.getJSONObject(i);
+                    // Get score
+                    JSONObject dou = doc.getJSONObject("double");
+                    // Get Answer
+                    JSONObject arr = doc.getJSONObject("arr");
+                    result_str += "Answer No. " + (i + 1) + " Score: " + dou.getDouble("content") + "\n";
+                    result_str += arr.getJSONArray("str").getJSONObject(1).getString("content") + "\n\n";
+                }
+                System.out.println(result_str);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return result_str;
         }
 
         @Override
